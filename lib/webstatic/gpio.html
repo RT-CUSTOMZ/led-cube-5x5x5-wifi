@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script>
+  var host = '';
+  // var host = 'http://192.168.120.118';
+
+  function setGpio(gpio, value) {
+    var xmlHttp = new XMLHttpRequest();
+
+    xmlHttp.open('PUT', host + '/gpio/' + gpio, true);
+
+    var jsonResponse = new Object();
+    jsonResponse.value =  (value == true) ? true : false;
+    xmlHttp.send(JSON.stringify(jsonResponse));
+  }
+
+  // window.setInterval( function() {
+  //   var xmlHttp = new XMLHttpRequest();
+  //
+  //   xmlHttp.open('GET', host + '/gpio/14', true);
+  //   xmlHttp.onload = function () {
+  //     var jsonResponse = JSON.parse(xmlHttp.responseText);
+  //     var s = document.getElementById("gpio14");
+  //     s.textContent = jsonResponse.value;
+  //   };
+  //   xmlHttp.send();
+  // },1000);
+  //
+  // window.setInterval( function() {
+  //   var xmlHttp = new XMLHttpRequest();
+  //
+  //   xmlHttp.open('GET', host + '/gpio/13', true);
+  //   xmlHttp.onload = function () {
+  //     var jsonResponse = JSON.parse(xmlHttp.responseText);
+  //     var s = document.getElementById("gpio13");
+  //     s.textContent = jsonResponse.value;
+  //   };
+  //   xmlHttp.send();
+  // },1000);
+  //
+  // window.setInterval( function() {
+  //   var xmlHttp = new XMLHttpRequest();
+  //
+  //   xmlHttp.open('GET', host + '/gpio/12', true);
+  //   xmlHttp.onload = function () {
+  //     var jsonResponse = JSON.parse(xmlHttp.responseText);
+  //     var s = document.getElementById("gpio12");
+  //     s.textContent = jsonResponse.value;
+  //   };
+  //   xmlHttp.send();
+  // },1000);
+  //
+  // window.setInterval( function() {
+  //   var xmlHttp = new XMLHttpRequest();
+  //
+  //   xmlHttp.open('GET', host + '/gpio/4', true);
+  //   xmlHttp.onload = function () {
+  //     var jsonResponse = JSON.parse(xmlHttp.responseText);
+  //     var s = document.getElementById("gpio4");
+  //     s.textContent = jsonResponse.value;
+  //   };
+  //   xmlHttp.send();
+  // },1000);
+  //
+  // window.setInterval( function() {
+  //   var xmlHttp = new XMLHttpRequest();
+  //
+  //   xmlHttp.open('GET', host + '/gpio/5', true);
+  //   xmlHttp.onload = function () {
+  //     var jsonResponse = JSON.parse(xmlHttp.responseText);
+  //     var s = document.getElementById("gpio5");
+  //     s.textContent = jsonResponse.value;
+  //   };
+  //   xmlHttp.send();
+  // },1000);
+  </script>
+
+
+</head>
+<body>
+  <div> GPIO4: <span id="gpio4"></span>
+    <form name="form1" onsubmit="setGpio()">
+      <input type="button" value="Set Gpio" onclick="setGpio(4, true)">
+      <input type="button" value="Unset Gpio" onclick="setGpio(4, false)">
+    </form>
+  </div>
+  <br />
+  <div> GPIO5: <span id="gpio5"></span>
+    <form name="form1" onsubmit="setGpio()">
+      <input type="button" value="Set Gpio" onclick="setGpio(5, true)">
+      <input type="button" value="Unset Gpio" onclick="setGpio(5, false)">
+    </form>
+  </div>
+  <br />
+  <br />
+  <br />
+
+  <div> GPIO12: <span id="gpio12"></span>
+    <form name="form1" onsubmit="setGpio()">
+      <input type="button" value="Set Gpio" onclick="setGpio(12, true)">
+      <input type="button" value="Unset Gpio" onclick="setGpio(12, false)">
+    </form>
+  </div>
+  <br />
+  <div> GPIO13: <span id="gpio13"></span>
+    <form name="form1" onsubmit="setGpio()">
+      <input type="button" value="Set Gpio" onclick="setGpio(13, true)">
+      <input type="button" value="Unset Gpio" onclick="setGpio(13, false)">
+    </form>
+  </div>
+  <br />
+  <div> GPIO14: <span id="gpio14"></span>
+    <form name="form1" onsubmit="setGpio()">
+      <input type="button" value="Set Gpio" onclick="setGpio(14, true)">
+      <input type="button" value="Unset Gpio" onclick="setGpio(14, false)">
+    </form>
+  </div>
+  <br />
+</body>
+</html>

@@ -1,0 +1,337 @@
+/*
+ * http_server.c
+ *
+ *  Created on: Nov 21, 2015
+ *      Author: sguelland
+ */
+
+#include <stdint.h>
+#include <stddef.h>
+
+
+#include "http11/http11_parser.h"
+#include "http_server.h"
+
+#include <stdio.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <netdb.h>
+#include <unistd.h>
+
+#include <stdlib.h>
+
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include <arpa/inet.h>
+
+#include "static_web_files.h"
+#include "mine_type_lookup.h"
+
+#include "log4c.h"
+static log4c_category_t* log;
+
+static int listenSocket;
+
+//////////////////////////////////////////////////////////////////
+
+typedef enum RequestMethods {
+	GET = 0,
+	HEAD,
+	POST,
+	PUT,
+	DELETE,
+	OPTIONS,
+}RequestMethods;
+
+typedef struct HttpReqeuest {
+	int connectionSocket;
+	void (*requestCb)(struct HttpReqeuest * httpRequest, const char *at, size_t length);
+	void * requestCbData;
+	RequestMethods requestMethod;
+	uint32_t content_length;
+} HttpReqeuest;
+
+//////////////////////////////////////////////////////////////////
+
+#define CRLF "\r\n"
+
+static const char http_response_pre_string[] = {
+	"HTTP/1.1 %d"CRLF
+//		"Server: nginx/1.9.4"CRLF
+//		"Date: Fri, 04 Dec 2015 18:18:38 GMT"CRLF
+	"Content-Type: %s"CRLF
+	"Content-Length: %d"CRLF
+	"Connection: keep-alive"CRLF
+	CRLF
+};
+
+static int send_response(int connectionSocket, int responseCode, const char * mineTyp, size_t length)
+{
+//      uint8_t buffer[1024];
+//
+//      snprintf(buffer, sizeof(buffer), http_response_pre_string, responseCode, mineTyp, length);
+//
+//      int send_length = send(connectionSocket, buffer, strlen(buffer), 0);
+// //	if (send_length == 0)
+// //		return;
+//      if (send_length == -1) {
+//              log4c_category_fatal(log, "send failed code %d: %s\n", errno, strerror(errno));
+//              return -1;
+//      }
+}
+
+//////////////////////////////////////////////////////////////////
+
+
+static void transmit_file(HttpReqeuest* httpReqeuest, const char *at, size_t length)
+{
+	struct HttpFile * staticFile = (struct HttpFile *)httpReqeuest->requestCbData;
+
+	log4c_category_info(log, "Send File: %d", staticFile->path);
+
+	const char* fileExtension =  strrchr(staticFile->path, '.');
+	const struct MineType* mineType = NULL;
+	if (fileExtension != NULL) {
+		fileExtension++;
+		log4c_category_info(log, "Lookup mine Type for %s", fileExtension);
+		mineType = mineTypeLookup(fileExtension, strlen(fileExtension));
+	}
+	const char* mineTypeString;
+	if (mineType == NULL)
+		mineTypeString = "text/html";
+	else
+		mineTypeString = mineType->typ;
+
+	send_response(httpReqeuest->connectionSocket, 200, mineTypeString, *(staticFile->sizePtr));
+	send(httpReqeuest->connectionSocket, staticFile->data, *(staticFile->sizePtr), 0);
+}
+
+static void transmit_404(HttpReqeuest* httpReqeuest, const char *at, size_t length)
+{
+	log4c_category_info(log, "Response 404");
+	send_response(httpReqeuest->connectionSocket, 404, "text/html", 0);
+
+}
+
+//////////////////////////////////////////////////////////////////
+
+// #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+//
+// #include "firmware_update.h"
+//
+// static void firmeare_upload(HttpReqeuest* httpReqeuest, const char *at, size_t length)
+// {
+//      log4c_category_info(log, "File upload");
+//      if (httpReqeuest->requestMethod == PUT) {
+//              send_response(httpReqeuest->connectionSocket, 100, "text/html", 0);
+//
+//              int returnValue = firmware_update_init();
+//
+//              if (returnValue != FIRMWARE_UPDATE_INIT_FAILED)
+//                      firmware_update(at, length);
+//              uint32_t i = length;
+//
+//              while (i < httpReqeuest->content_length) {
+//                      char buffer[100];
+//                      uint32_t receive_size = MIN(sizeof(buffer),
+//                                                  httpReqeuest->content_length - i);
+//                      uint32_t receive_length = recv(httpReqeuest->connectionSocket,
+//                                                     buffer, receive_size, 0);
+//                      if (receive_length == 0)
+//                              break;
+//                      i += receive_length;
+//                      if (returnValue != FIRMWARE_UPDATE_INIT_FAILED)
+//                              firmware_update(buffer, receive_length);
+//              }
+//              firmware_update_deinit();
+//              send_response(httpReqeuest->connectionSocket, 200, "text/html", 0);
+//      }else if (httpReqeuest->requestMethod == DELETE) {
+//              int returnValue = firmware_update_init();
+//              BSL_MassErase();
+//              firmware_update_deinit();
+//              send_response(httpReqeuest->connectionSocket, 200, "text/html", 0);
+//      }
+// }
+
+//////////////////////////////////////////////////////////////////
+
+// #include "firmware_update.h"
+//
+// static void reset_device(HttpReqeuest* httpReqeuest, const char *at, size_t length)
+// {
+//      log4c_category_info(log, "Reset device");
+//      firmware_update_reset_device();
+//      send_response(httpReqeuest->connectionSocket, 200, "text/html", 0);
+//
+// }
+
+//////////////////////////////////////////////////////////////////
+
+static void header_done_callback(void *data, const char *at, size_t length)
+{
+	HttpReqeuest* httpReqeuest = (HttpReqeuest*)data;
+
+	log4c_category_notice(log, "Header parsing done");
+	httpReqeuest->requestCb(httpReqeuest, at, length);
+}
+
+static void query_string_callback(void *data, const char *at, size_t length)
+{
+	log4c_category_notice(log, "Query string: %.*s", length, at);
+}
+
+static void request_path_callback(void *data, const char *at, size_t length)
+{
+	HttpReqeuest* httpReqeuest = (HttpReqeuest*)data;
+
+	log4c_category_notice(log, "Request path: %.*s", length, at);
+	if (strncmp("GET", at, length) == 0)
+		httpReqeuest->requestMethod = GET;
+	else if (strncmp("PUT", at, length) == 0)
+		httpReqeuest->requestMethod = PUT;
+	else if (strncmp("POST", at, length) == 0)
+		httpReqeuest->requestMethod = POST;
+	else if (strncmp("DELETE", at, length) == 0)
+		httpReqeuest->requestMethod = DELETE;
+	else if (strncmp("HEAD", at, length) == 0)
+		httpReqeuest->requestMethod = HEAD;
+}
+
+static void request_uri_callback(void *data, const char *at, size_t length)
+{
+	HttpReqeuest* httpReqeuest = (HttpReqeuest*)data;
+
+	log4c_category_notice(log, "Request uri: %.*s", length, at);
+	const struct HttpFile * staticFile = staticWebFileLookup(at, length);
+	if (staticFile != NULL) {
+		httpReqeuest->requestCbData = (void*)staticFile;
+		httpReqeuest->requestCb = transmit_file;
+	}
+	// else if (strncmp("/firmware_upload",at,length) == 0) {
+	//      httpReqeuest->requestCb = firmeare_upload;
+	// }
+	// else if (strncmp("/reset_device",at,length) == 0) {
+	//      httpReqeuest->requestCb = reset_device;
+	// }
+	else
+		httpReqeuest->requestCb = transmit_404;
+}
+
+static void field_callback(void *data, const char *field, size_t flen, const char *value, size_t vlen)
+{
+	HttpReqeuest* httpReqeuest = (HttpReqeuest*)data;
+
+	if (strncmp("Content-Length", field, flen) == 0) {
+		uint32_t number = 0;
+		for (uint32_t i = 0; i < vlen; i++)
+			number = number * 10 + (value[i] - '0');
+		httpReqeuest->content_length = number;
+	}
+}
+
+//////////////////////////////////////////////////////////////////
+
+
+void HTTP_server_init()
+{
+	// log = log4c_category_get("http.server");
+	// log4c_category_set_appender(log, log4c_appender_get("stdout"));
+	//
+	// struct addrinfo req, *ans;
+	// int code, len;
+	//
+	// /*                                                    */
+	// /* Set ai_flags to AI_PASSIVE to indicate that return */
+	// /* address is suitable for bind()                     */
+	// /*                                                    */
+	// req.ai_flags = AI_PASSIVE;
+	// req.ai_family = PF_INET6;             /* Same as AF_INET6.    */
+	// req.ai_socktype = SOCK_STREAM;
+	// req.ai_protocol = 0;
+	//
+	// if ((code = getaddrinfo(NULL, "8080", &req, &ans)) != 0) {
+	//      log4c_category_fatal(log, "getaddrinfo failed code %d: %s\n", code, gai_strerror(code));
+	//      exit(1);
+	// }
+	// if ((listenSocket = socket(ans->ai_family, ans->ai_socktype, ans->ai_protocol)) == -1) {
+	//      log4c_category_fatal(log, "socket failed code %d: %s\n", errno, strerror(errno));
+	//      exit(1);
+	// }
+	// if (bind(listenSocket, ans->ai_addr, ans->ai_addrlen) < 0) {
+	//      log4c_category_fatal(log, "bind failed code %d: %s\n", errno, strerror(errno));
+	//      exit(1);
+	// }
+	// if (listen(listenSocket, 5) == -1) {
+	//      log4c_category_fatal(log, "listen failed code %d: %s\n", errno, strerror(errno));
+	//      exit(1);
+	// }
+	// freeaddrinfo(ans);
+}
+
+//////////////////////////////////////////////////////////////////
+
+static void handle_connection(int connectionSocket)
+{
+	// ssize_t receive_length = 0;
+	// ssize_t send_length = 0;
+	// uint8_t buffer[1024];
+	//
+	// HttpReqeuest httpRequest;
+	//
+	// httpRequest.connectionSocket = connectionSocket;
+	//
+	// http_parser httpParser;
+	// memset(&httpParser, 0, sizeof(httpParser));
+	// httpParser.http_field = field_callback;
+	// httpParser.header_done = header_done_callback;
+	// httpParser.query_string = query_string_callback;
+	// httpParser.request_method = request_path_callback;
+	// httpParser.request_uri = request_uri_callback;
+	// httpParser.data = &httpRequest;
+	// http_parser_init(&httpParser);
+	//
+	// while (1) {
+	//      receive_length = recv(connectionSocket, buffer, sizeof(buffer), 0);
+	//      if (receive_length == 0)
+	//              break;
+	//      else if (receive_length == -1) {
+	//              log4c_category_fatal(log, "recv failed code %d: %s\n", errno, strerror(errno));
+	//              break;
+	//      }
+	//      http_parser_execute(&httpParser, buffer, receive_length, 0);
+	//      break;
+	// }
+}
+
+void HTTP_server_run(void)
+{
+//      for (;; ) {
+//              struct sockaddr_in6 from;
+//              int len = sizeof(from);
+//              int connectionSocket = accept(listenSocket, (struct sockaddr *)&from, &len);
+//              if (connectionSocket < 0) {
+//                      log4c_category_fatal(log, "accept failed code %d: %s\n", errno, strerror(errno));
+//                      continue;
+//              }
+//
+//              char straddr[INET6_ADDRSTRLEN];
+//              if (inet_ntop(AF_INET6, &from.sin6_addr, straddr, sizeof(straddr)) != NULL)
+//                      log4c_category_notice(log, "Connection from %s accepted", straddr);
+//              else
+//                      log4c_category_fatal(log, "inet_ntop failed code %d: %s\n", errno, strerror(errno));
+//
+// //              if (fork() == 0) {
+// //                      close(f);
+//              handle_connection(connectionSocket);
+//
+// //              }
+//              close(connectionSocket);
+//              log4c_category_notice(log, "Connection from %s closed", straddr);
+//      }
+
+}

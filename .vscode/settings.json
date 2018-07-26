@@ -1,0 +1,12 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/sguelland/.platformio/penv/bin:/home/sguelland/.platformio/penv:/app/bin:/usr/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    },
+    "files.associations": {
+        "jsmn.h": "c",
+        "config.h": "c",
+        "jsonparse.h": "c",
+        "artnet.h": "c"
+    }
+}
