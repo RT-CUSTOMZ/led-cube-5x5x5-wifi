@@ -122,7 +122,8 @@ header_done_callback(void *data, const char *at, size_t length)
 	os_printf("Header parsing done\n");
 	#endif
 	//send_response(httpReqeuest, 404, "text/html", 0);
-	httpReqeuest->requestCb(httpReqeuest, at, length);
+	if(length > 0 || httpReqeuest->requestMethod == GET)
+		httpReqeuest->requestCb(httpReqeuest, at, length);
 	//httpReqeuest->requestCb(httpReqeuest, at, length);
 }
 
@@ -286,8 +287,13 @@ http_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 	#ifdef HTTP_DEBUG
 	os_printf("Recv: \n");
 	#endif
+	if( http_parser_is_finished(&(es->httpParser)) == 0) {
+		http_parser_execute(&(es->httpParser), p->payload, p->len, 0);
+	} else {
+		os_printf("%s\n", p->payload);
+		es->requestCb(es, p->payload, p->len);
 
-	http_parser_execute(&(es->httpParser), p->payload, p->len, 0);
+	}
 	//uart0_tx_buffer((uint8*)p->payload, p->len);
 	tcp_recved(tpcb, p->len);
 	pbuf_free(p);

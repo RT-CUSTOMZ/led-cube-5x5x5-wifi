@@ -32,17 +32,22 @@ ip_get_json(void* user)
   struct ip_info info;
   wifi_get_ip_info(STATION_IF, &info);
 
+  uint8_t mac[6];
+  wifi_get_macaddr(STATION_IF,mac);
+
 	static char buffer[100];
   os_sprintf(buffer, "{"
        "\"status\" : \"%s\","
        "\"ip\" : \""IPSTR "\","
        "\"gw\" : \""IPSTR "\","
-       "\"netmask\" : \""IPSTR "\""
+       "\"netmask\" : \""IPSTR "\","
+       "\"mac\" : \"%02x:%02x:%02x:%02x:%02x:%02x\""
        "}"
        , ConnectionStatusLut[wifi_station_get_connect_status()]
        , IP2STR(&(info.ip.addr))
        , IP2STR(&(info.gw.addr))
        , IP2STR(&(info.netmask.addr))
+       ,mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]
        );
   os_printf("%s\n",buffer);
 	return &(buffer[0]);

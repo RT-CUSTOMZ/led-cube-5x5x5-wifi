@@ -257,7 +257,7 @@ void user_init(void)
 {
 	uart_init(BIT_RATE_115200, BIT_RATE_115200);
 
-	// system_uart_swap(); // wieder aktivieren in produktion!
+	system_uart_swap(); // wieder aktivieren in produktion!
 	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_U1TXD_BK);
 	Serial1_init(NULL, BIT_RATE_115200, NULL);
 	os_install_putc1(uart1_write_char);
