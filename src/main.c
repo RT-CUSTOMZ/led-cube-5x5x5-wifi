@@ -247,13 +247,15 @@ static uint32_t transmittCallback(uint8_t ** dataPtr, void * userptr)
   return 0;
 }
 
+void button_init(void);
+
 /******************************************************************************
  * FunctionName : user_init
  * Description  : entry of user application, init user function here
  * Parameters   : none
  * Returns      : none
  *******************************************************************************/
-void user_init(void)
+void ICACHE_FLASH_ATTR user_init(void)
 {
 	uart_init(BIT_RATE_115200, BIT_RATE_115200);
 
@@ -281,6 +283,8 @@ void user_init(void)
   ARTNET_CUBE_init();
 
   config_load();
+
+  button_init();
 }
 
 void ICACHE_FLASH_ATTR
